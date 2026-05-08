@@ -1,0 +1,129 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // HELPER FUNCTIONS
+    // ============================================================
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Get the current user's document from Firestore
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Check if current user has a specific role
+    function hasRole(role) {
+      return isAuthenticated() && getUserData().role == role;
+    }
+
+    // Check if current user is Super Admin
+    function isSuperAdmin() {
+      return hasRole('super_admin');
+    }
+
+    // Check if current user is Admin
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    // Check if current user is the document owner
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Check if current user belongs to a specific company
+    function belongsToCompany(companyId) {
+      return isAuthenticated() && getUserData().companyId == companyId;
+    }
+
+    // ============================================================
+    // USERS COLLECTION
+    // ============================================================
+    match /users/{userId} {
+
+      // READ Rules:
+      // - Super Admin: can read ALL user documents
+      // - Admin: can read users in their own company
+      // - User: can only read their OWN document
+      allow read: if isOwner(userId)
+                  || isSuperAdmin()
+                  || (isAdmin() && resource.data.companyId == getUserData().companyId);
+
+      // CREATE Rules:
+      // - Super Admin: can create any user
+      // - Admin: can create users in their own company with role 'user' only
+      allow create: if isSuperAdmin()
+                    || (isAdmin()
+                        && request.resource.data.companyId == getUserData().companyId
+                        && request.resource.data.role == 'user');
+
+      // UPDATE Rules:
+      // - Super Admin: can update any user (role, status, all fields)
+      // - Admin: can update basic info of users in their company (NOT role/status)
+      // - User: CANNOT update their own document (admin must do it)
+      allow update: if isSuperAdmin()
+                    || (isAdmin()
+                        && resource.data.companyId == getUserData().companyId
+                        && request.resource.data.role == resource.data.role       // Cannot change role
+                        && request.resource.data.companyId == resource.data.companyId // Cannot change company
+                       );
+
+      // DELETE Rules:
+      // - Only Super Admin can delete users
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================================
+    // COMPANIES COLLECTION
+    // ============================================================
+    match /companies/{companyId} {
+
+      // READ Rules:
+      // - Super Admin: can read ALL companies
+      // - Admin: can read their OWN company only
+      // - User: can read their OWN company only (for dashboard)
+      allow read: if isSuperAdmin()
+                  || belongsToCompany(companyId);
+
+      // CREATE Rules:
+      // - Only Super Admin can create companies
+      allow create: if isSuperAdmin();
+
+      // UPDATE Rules:
+      // - Only Super Admin can update companies
+      allow update: if isSuperAdmin();
+
+      // DELETE Rules:
+      // - Only Super Admin can delete companies
+      allow delete: if isSuperAdmin();
+    }
+
+    // ============================================================
+    // AUDIT LOGS COLLECTION
+    // ============================================================
+    match /auditLogs/{logId} {
+
+      // READ Rules:
+      // - Only Super Admin can read audit logs
+      allow read: if isSuperAdmin();
+
+      // WRITE Rules:
+      // - Any authenticated user can CREATE audit logs (for login tracking etc.)
+      // - Nobody can UPDATE or DELETE audit logs (tamper-proof)
+      allow create: if isAuthenticated();
+      allow update, delete: if false;  // Audit logs are immutable
+    }
+
+    // ============================================================
+    // CATCH-ALL: Deny everything else
+    // ============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

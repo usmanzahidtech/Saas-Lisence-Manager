@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { checkExpiryStatus, formatDate, copyToClipboard, parseDate } from '../../utils/helpers';
+import { checkExpiryStatus, formatDate, formatDateTime, copyToClipboard, parseDate } from '../../utils/helpers';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from '../../utils/firebase';
 import { 
   Key, 
   Calendar, 
@@ -17,8 +19,54 @@ import {
 } from 'lucide-react';
 
 const UserDashboard = () => {
-  const { userData, companyData } = useAuth();
+  const { userData, companyData, currentUser } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+
+  // Fetch real activity from auditLogs
+  useEffect(() => {
+    if (currentUser) {
+      fetchRecentActivity();
+    }
+  }, [currentUser]);
+
+  const fetchRecentActivity = async () => {
+    try {
+      setActivityLoading(true);
+      const q = query(
+        collection(db, 'auditLogs'),
+        where('performedBy', '==', currentUser.uid),
+        orderBy('timestamp', 'desc'),
+        limit(5)
+      );
+      const snapshot = await getDocs(q);
+      const logs = [];
+      snapshot.forEach((doc) => {
+        logs.push({ id: doc.id, ...doc.data() });
+      });
+      setRecentActivity(logs);
+    } catch (err) {
+      // Index might not exist yet — gracefully handle
+      console.warn('Could not fetch activity:', err.message);
+      setRecentActivity([]);
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
+  const formatActionName = (action) => {
+    const names = {
+      login_success: 'Login Successful',
+      login_failed: 'Failed Login',
+      logout: 'Logged Out',
+      create_user: 'Created User',
+      edit_user: 'Updated Profile',
+      create_company: 'Created Company',
+      update_company: 'Updated Company',
+    };
+    return names[action] || action?.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  };
 
   if (!userData || !companyData) {
     return (
@@ -319,36 +367,53 @@ const UserDashboard = () => {
         </div>
       </div>
 
-      {/* Activity and Devices Section */}
+      {/* Activity and Session Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        {/* Recent Activity */}
+        {/* Recent Activity — Real Data from Firestore */}
         <div className="bg-white border-2 border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
           <h3 className="font-bold text-gray-800 mb-4 flex items-center">
             <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
             Recent Activity
           </h3>
-          <div className="space-y-4">
-            {[
-              { action: 'Login Successful', time: '2 hours ago', device: 'Chrome on Windows', status: 'success' },
-              { action: 'License Key Copied', time: '5 hours ago', device: 'Chrome on Windows', status: 'info' },
-              { action: 'Profile Updated', time: '1 day ago', device: 'Chrome on Windows', status: 'success' }
-            ].map((activity, index) => (
-              <div key={index} className="flex items-start p-3 rounded-xl bg-gray-50 border border-gray-100 hover:bg-blue-50 hover:border-blue-100 transition-colors duration-200">
-                <div className={`w-2 h-2 mt-2 rounded-full mr-3 ${activity.status === 'success' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">{activity.action}</p>
-                  <p className="text-xs text-gray-500">{activity.time} • {activity.device}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          {activityLoading ? (
+            <div className="text-center py-6">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-4 border-blue-600 mx-auto"></div>
+              <p className="text-gray-500 text-sm mt-2">Loading...</p>
+            </div>
+          ) : recentActivity.length === 0 ? (
+            <div className="text-center py-6">
+              <TrendingUp className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+              <p className="text-gray-500 text-sm">No recent activity</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {recentActivity.map((log) => {
+                const isSuccess = log.action === 'login_success' || log.action === 'create_user' || log.action === 'logout';
+                const isFailed = log.action === 'login_failed';
+                return (
+                  <div key={log.id} className="flex items-start p-3 rounded-xl bg-gray-50 border border-gray-100 hover:bg-blue-50 hover:border-blue-100 transition-colors duration-200">
+                    <div className={`w-2 h-2 mt-2 rounded-full mr-3 ${isFailed ? 'bg-red-500' : isSuccess ? 'bg-green-500' : 'bg-blue-500'}`}></div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-800">{formatActionName(log.action)}</p>
+                      <p className="text-xs text-gray-500">
+                        {log.timestamp ? formatDateTime(log.timestamp) : 'N/A'}
+                      </p>
+                      {log.details && (
+                        <p className="text-xs text-gray-400 mt-1 truncate">{log.details}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Active Devices */}
+        {/* Current Session — Real Browser Info */}
         <div className="bg-white border-2 border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow duration-200">
           <h3 className="font-bold text-gray-800 mb-4 flex items-center">
             <Shield className="w-5 h-5 mr-2 text-green-600" />
-            Active Devices
+            Current Session
           </h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between p-3 rounded-xl bg-green-50 border border-green-100">
@@ -357,25 +422,33 @@ const UserDashboard = () => {
                   <Globe className="w-5 h-5 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-gray-800">Chrome on Windows</p>
+                  <p className="text-sm font-bold text-gray-800">
+                    {navigator.userAgent.includes('Chrome') ? 'Chrome' :
+                     navigator.userAgent.includes('Firefox') ? 'Firefox' :
+                     navigator.userAgent.includes('Safari') ? 'Safari' : 'Browser'}
+                    {' on '}
+                    {navigator.userAgent.includes('Windows') ? 'Windows' :
+                     navigator.userAgent.includes('Mac') ? 'macOS' :
+                     navigator.userAgent.includes('Linux') ? 'Linux' :
+                     navigator.userAgent.includes('Android') ? 'Android' :
+                     navigator.userAgent.includes('iPhone') ? 'iOS' : 'Unknown OS'}
+                  </p>
                   <p className="text-xs text-green-700 flex items-center">
                     <span className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse"></span>
-                    Current Session
+                    Active Now
                   </p>
                 </div>
               </div>
-              <span className="text-xs font-semibold bg-white px-2 py-1 rounded border border-green-200 text-green-700">Now</span>
+              <span className="text-xs font-semibold bg-white px-2 py-1 rounded border border-green-200 text-green-700">Live</span>
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100 opacity-75">
-              <div className="flex items-center">
-                <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm mr-3">
-                  <Globe className="w-5 h-5 text-gray-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-gray-700">Safari on iPhone</p>
-                  <p className="text-xs text-gray-500">Last active: 2 days ago</p>
-                </div>
+            <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+              <h4 className="text-sm font-semibold text-blue-800 mb-2">Session Details</h4>
+              <div className="space-y-1 text-xs text-blue-700">
+                <p><span className="font-medium">Logged in as:</span> {userData?.email}</p>
+                <p><span className="font-medium">Role:</span> <span className="capitalize">{userData?.role?.replace('_', ' ')}</span></p>
+                <p><span className="font-medium">Language:</span> {navigator.language || 'en'}</p>
+                <p><span className="font-medium">Screen:</span> {window.screen?.width}x{window.screen?.height}</p>
               </div>
             </div>
           </div>

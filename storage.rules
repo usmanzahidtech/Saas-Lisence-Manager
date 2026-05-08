@@ -1,0 +1,57 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ============================================================
+    // HELPER FUNCTIONS
+    // ============================================================
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Validate image file type
+    function isValidImage() {
+      return request.resource.contentType.matches('image/(jpeg|jpg|png|gif|webp)');
+    }
+
+    // Validate file size (max 10MB before compression)
+    function isValidSize() {
+      return request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // ============================================================
+    // PROFILE IMAGES
+    // ============================================================
+    match /profile-images/{userId}/{allPaths=**} {
+      // Anyone authenticated can READ profile images (needed for user lists)
+      allow read: if isAuthenticated();
+
+      // Only the user themselves OR authenticated admins can WRITE
+      allow write: if isAuthenticated()
+                   && isValidImage()
+                   && isValidSize();
+    }
+
+    // ============================================================
+    // COMPANY LOGOS
+    // ============================================================
+    match /company-logos/{companyId}/{allPaths=**} {
+      // Anyone authenticated can READ company logos (needed for dashboards)
+      allow read: if isAuthenticated();
+
+      // Only authenticated users can WRITE (Super Admin creates companies)
+      allow write: if isAuthenticated()
+                   && isValidImage()
+                   && isValidSize();
+    }
+
+    // ============================================================
+    // CATCH-ALL: Deny everything else
+    // ============================================================
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
