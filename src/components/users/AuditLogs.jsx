@@ -67,39 +67,67 @@ const AuditLogs = () => {
             <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600">No activity logs yet</p>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b-2 border-gray-200">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Timestamp</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Action</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Performed By</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
-                      {log.timestamp ? formatDateTime(log.timestamp) : 'N/A'}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`text-xs px-3 py-1 rounded-full font-semibold ${getActionBadge(log.action)}`}>
-                        {formatAction(log.action)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
-                      {log.performedByEmail || 'System'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700 min-w-[200px] break-words">
-                      {log.details}
-                    </td>
+        ) : ( <>
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b-2 border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Timestamp</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Action</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Performed By</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Details</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {logs.map((log) => (
+                    <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                        {log.timestamp ? formatDateTime(log.timestamp) : 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`text-xs px-3 py-1 rounded-full font-semibold ${getActionBadge(log.action)}`}>
+                          {formatAction(log.action)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
+                        {log.performedByEmail || 'System'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-700 min-w-[200px] break-words">
+                        {log.details}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4">
+              {logs.map((log) => (
+                <div key={log.id} className="bg-gray-50 border border-gray-100 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-3 gap-2">
+                    <span className={`inline-block w-fit text-xs px-3 py-1 rounded-full font-semibold ${getActionBadge(log.action)}`}>
+                      {formatAction(log.action)}
+                    </span>
+                    <span className="text-xs text-gray-500 whitespace-nowrap mt-1">
+                      {log.timestamp ? formatDateTime(log.timestamp) : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="bg-white rounded-lg p-3 border border-gray-100">
+                    <p className="text-sm text-gray-700 break-words mb-2">
+                      <span className="font-semibold text-gray-900 mr-2 block mb-1">Details:</span>
+                      {log.details}
+                    </p>
+                    <div className="text-xs text-gray-600 pt-2 border-t border-gray-50 flex items-center">
+                      <span className="font-semibold text-gray-800 mr-2">Performed By:</span>
+                      <span className="break-all">{log.performedByEmail || 'System'}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>
