@@ -81,18 +81,18 @@ const AuditLogs = () => {
               <tbody className="divide-y divide-gray-200">
                 {logs.map((log) => (
                   <tr key={log.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
                       {log.timestamp ? formatDateTime(log.timestamp) : 'N/A'}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <span className={`text-xs px-3 py-1 rounded-full font-semibold ${getActionBadge(log.action)}`}>
                         {formatAction(log.action)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
                       {log.performedByEmail || 'System'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
+                    <td className="px-4 py-3 text-sm text-gray-700 min-w-[200px] break-words">
                       {log.details}
                     </td>
                   </tr>

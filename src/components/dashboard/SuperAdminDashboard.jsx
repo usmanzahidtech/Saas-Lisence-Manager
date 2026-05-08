@@ -253,17 +253,17 @@ const SuperAdminDashboard = () => {
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {recentActivity.map((log) => (
                 <div key={log.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="flex items-start justify-between mb-1">
-                    <span className={`text-xs px-2 py-1 rounded-full font-semibold ${getActionBadge(log.action)}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
+                    <span className={`inline-block w-fit text-xs px-2 py-1 rounded-full font-semibold ${getActionBadge(log.action)}`}>
                       {formatAction(log.action)}
                     </span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 whitespace-nowrap">
                       {log.timestamp ? formatDateTime(log.timestamp) : 'N/A'}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-700 mt-2">{log.details}</p>
+                  <p className="text-sm text-gray-700 mt-2 break-words">{log.details}</p>
                   {log.performedByEmail && (
-                    <p className="text-xs text-gray-500 mt-1">By: {log.performedByEmail}</p>
+                    <p className="text-xs text-gray-500 mt-1 break-all sm:break-normal">By: {log.performedByEmail}</p>
                   )}
                 </div>
               ))}
